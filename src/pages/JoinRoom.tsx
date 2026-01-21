@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
-import { getUserId, getUserName } from '@/lib/user';
+import { getUserId, getUserName, setUserName } from '@/lib/user';
+import { UsernameModal } from '@/components/UsernameModal';
 import { toast } from 'sonner';
 
 export default function JoinRoom() {
@@ -13,6 +14,23 @@ export default function JoinRoom() {
   const [roomCode, setRoomCode] = useState(urlCode?.toUpperCase() || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showUsernameModal, setShowUsernameModal] = useState(false);
+  const [currentUserName, setCurrentUserName] = useState(getUserName());
+
+  // Check if user has a custom name set
+  useEffect(() => {
+    const storedName = localStorage.getItem('realchat_user_name');
+    // Only show modal if user has auto-generated name (starts with "User ")
+    if (!storedName || storedName.startsWith('User ')) {
+      setShowUsernameModal(true);
+    }
+  }, []);
+
+  const handleUsernameSubmit = (username: string) => {
+    setUserName(username);
+    setCurrentUserName(username);
+    setShowUsernameModal(false);
+  };
 
   const handleJoin = async () => {
     if (!roomCode.trim()) {
@@ -25,14 +43,14 @@ export default function JoinRoom() {
 
     try {
       const userId = getUserId();
-      const userName = getUserName();
+      const userName = currentUserName;
 
       // Find room
       const { data: room, error: roomError } = await supabase
         .from('rooms')
         .select('*')
         .eq('room_code', roomCode.toUpperCase())
-        .single();
+        .maybeSingle();
 
       if (roomError || !room) {
         setError('Room not found. Please check the code and try again.');
@@ -46,13 +64,13 @@ export default function JoinRoom() {
         .select('*')
         .eq('room_id', room.id)
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
       if (existingParticipant) {
-        // Update online status
+        // Update online status and name
         await supabase
           .from('participants')
-          .update({ is_online: true, last_seen: new Date().toISOString() })
+          .update({ is_online: true, last_seen: new Date().toISOString(), user_name: userName })
           .eq('id', existingParticipant.id);
       } else {
         // Check participant count (limit to 50 for performance)
@@ -98,6 +116,13 @@ export default function JoinRoom() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
+      {/* Username Modal */}
+      <UsernameModal
+        open={showUsernameModal}
+        onSubmit={handleUsernameSubmit}
+        currentName={currentUserName}
+      />
+
       {/* Header */}
       <header className="flex items-center gap-3 px-4 py-4 border-b border-border">
         <Button
@@ -121,6 +146,9 @@ export default function JoinRoom() {
             <h2 className="text-xl font-semibold mb-1">Enter Room Code</h2>
             <p className="text-muted-foreground text-sm">
               Get the code from the room creator
+            </p>
+            <p className="text-sm text-primary mt-2">
+              Joining as: <span className="font-semibold">{currentUserName}</span>
             </p>
           </div>
 

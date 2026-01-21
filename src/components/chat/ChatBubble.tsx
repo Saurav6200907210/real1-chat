@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { ReactionPicker } from './ReactionPicker';
+import { MessageActions } from './MessageActions';
+import { EditMessageInput } from './EditMessageInput';
 
 interface Reaction {
   id: string;
@@ -16,17 +18,21 @@ interface ChatBubbleProps {
     text: string;
     created_at: string;
     reactions: Reaction[];
+    is_edited?: boolean;
   };
   isOwn: boolean;
   onReact: (messageId: string, reactionType: string) => void;
+  onEdit?: (messageId: string, newText: string) => void;
+  onDelete?: (messageId: string) => void;
   userId: string;
   isNew?: boolean;
 }
 
 const REACTION_EMOJIS = ['❤️', '😂', '👍', '😮', '😢', '🔥'];
 
-export function ChatBubble({ message, isOwn, onReact, userId, isNew }: ChatBubbleProps) {
+export function ChatBubble({ message, isOwn, onReact, onEdit, onDelete, userId, isNew }: ChatBubbleProps) {
   const [showReactions, setShowReactions] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -43,10 +49,28 @@ export function ChatBubble({ message, isOwn, onReact, userId, isNew }: ChatBubbl
     .filter(r => r.user_id === userId)
     .map(r => r.reaction_type);
 
+  const handleEdit = () => {
+    setIsEditing(true);
+    setShowReactions(false);
+  };
+
+  const handleSaveEdit = (newText: string) => {
+    if (onEdit) {
+      onEdit(message.id, newText);
+    }
+    setIsEditing(false);
+  };
+
+  const handleDelete = () => {
+    if (onDelete) {
+      onDelete(message.id);
+    }
+  };
+
   return (
     <div
       className={cn(
-        'flex flex-col max-w-[85%] animate-message-in',
+        'flex flex-col max-w-[85%] animate-message-in group',
         isOwn ? 'self-end items-end' : 'self-start items-start',
         isNew && 'animate-new-message'
       )}
@@ -58,29 +82,50 @@ export function ChatBubble({ message, isOwn, onReact, userId, isNew }: ChatBubbl
         </span>
       )}
 
-      {/* Message bubble */}
-      <div
-        className={cn(
-          'relative px-4 py-2.5 rounded-2xl transition-all duration-200',
-          isOwn
-            ? 'bg-chat-sender text-chat-sender-foreground rounded-br-md'
-            : 'bg-chat-receiver text-chat-receiver-foreground rounded-bl-md'
+      {/* Message bubble with actions */}
+      <div className={cn(
+        'flex items-center gap-1',
+        isOwn ? 'flex-row-reverse' : 'flex-row'
+      )}>
+        <div
+          className={cn(
+            'relative px-4 py-2.5 rounded-2xl transition-all duration-200',
+            isOwn
+              ? 'bg-chat-sender text-chat-sender-foreground rounded-br-md'
+              : 'bg-chat-receiver text-chat-receiver-foreground rounded-bl-md'
+          )}
+          onClick={() => !isEditing && setShowReactions(!showReactions)}
+        >
+          {isEditing ? (
+            <EditMessageInput
+              initialText={message.text}
+              onSave={handleSaveEdit}
+              onCancel={() => setIsEditing(false)}
+            />
+          ) : (
+            <>
+              <p className="text-sm leading-relaxed break-words">{message.text}</p>
+              
+              {/* Timestamp and edited indicator */}
+              <span className={cn(
+                'text-[10px] mt-1 block',
+                isOwn ? 'text-chat-sender-foreground/70' : 'text-chat-receiver-foreground/70'
+              )}>
+                {formatTime(message.created_at)}
+                {message.is_edited && ' • edited'}
+              </span>
+            </>
+          )}
+        </div>
+
+        {/* Actions for own messages */}
+        {isOwn && !isEditing && (
+          <MessageActions onEdit={handleEdit} onDelete={handleDelete} />
         )}
-        onClick={() => setShowReactions(!showReactions)}
-      >
-        <p className="text-sm leading-relaxed break-words">{message.text}</p>
-        
-        {/* Timestamp */}
-        <span className={cn(
-          'text-[10px] mt-1 block',
-          isOwn ? 'text-chat-sender-foreground/70' : 'text-chat-receiver-foreground/70'
-        )}>
-          {formatTime(message.created_at)}
-        </span>
       </div>
 
       {/* Reaction picker */}
-      {showReactions && (
+      {showReactions && !isEditing && (
         <ReactionPicker
           onSelect={(emoji) => {
             onReact(message.id, emoji);

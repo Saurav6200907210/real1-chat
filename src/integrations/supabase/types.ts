@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          is_edited: boolean
           room_id: string
           sender_id: string
           sender_name: string
@@ -26,6 +27,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          is_edited?: boolean
           room_id: string
           sender_id: string
           sender_name: string
@@ -34,6 +36,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          is_edited?: boolean
           room_id?: string
           sender_id?: string
           sender_name?: string
