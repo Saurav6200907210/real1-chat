@@ -1,73 +1,226 @@
-# Welcome to your Lovable project
+# RealChat 💬⚡ (Real-Time Multi-User Room Chat App)
 
-## Project info
+RealChat is a **modern real-time chat application** built for **Android-first mobile experience** with a **clean solid-color UI**, smooth chat animations, and **multi-user room support (10+ users per room)**.  
+No login, no signup — just **create a room, share the code, and start chatting instantly**.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+> ✅ **Real-time messaging**  
+> ✅ **Room invite via code/link**  
+> ✅ **10+ users per room**  
+> ✅ **Message reactions (❤️ 😂 👍 😮 😢 🔥)**  
+> ✅ **Typing indicator + smooth animations**  
+> ✅ **Lovable Cloud backend integration**  
+> ✅ **SEO-friendly documentation**
 
-## How can I edit this code?
+---
 
-There are several ways of editing your application.
+## ✨ Features
 
-**Use Lovable**
+### 🚀 Core Features
+- **Create Room** (Host creates a chat room)
+- **Join Room** using **Room Code / Invite Link**
+- **Real-Time Chat** (messages sync instantly)
+- **Multi-User Room Support** (minimum **10 users**)
+- **Participants List** (see who is in the room)
+- **Online Users Count**
+- **Typing Indicator** (“Someone is typing…”)
+- **Auto Scroll** to latest message
+- **New Message Indicator** when user scrolls up
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+### 😍 Chat Experience
+- Smooth message animations (send/receive)
+- Interactive UI (tap effects, micro-interactions)
+- **Message reactions** with animation + counts
+- Solid-color premium UI (NO gradients)
 
-Changes made via Lovable will be committed automatically to this repo.
+### 🔐 Authentication
+- ❌ No signup
+- ❌ No login
+- ❌ No authentication required  
+Users can chat instantly using room invite system.
 
-**Use your preferred IDE**
+---
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## 📱 Screens / Pages
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+- **Home**
+  - Create Room
+  - Join Room
 
-Follow these steps:
+- **Create Room**
+  - Generate Room Code
+  - Click-to-copy invite
+  - Share link (optional)
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+- **Join Room**
+  - Enter Room Code
+  - Join instantly
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+- **Chat Room**
+  - Messages
+  - Participants
+  - Reactions
+  - Typing indicator
+  - Leave Room
 
-# Step 3: Install the necessary dependencies.
-npm i
+---
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+## 🧠 How RealChat Works (System Flow)
+
+```ascii
++-------------------+         +----------------------+
+|   User A (Host)   |         |    User B / C / D    |
++-------------------+         +----------------------+
+          |                              |
+          | Create Room                  | Join Room
+          |----------------------------->| (Room Code / Link)
+          |                              |
+          v                              v
++------------------------------------------------------+
+|                    RealChat Room                      |
+|   - roomId                                            |
+|   - participants (10+ users)                          |
+|   - messages realtime sync                            |
+|   - reactions + typing indicator                      |
++------------------------------------------------------+
+          |
+          v
++-----------------------------+
+|    Lovable Cloud Backend    |
+|  - rooms                    |
+|  - participants             |
+|  - messages                 |
+|  - reactions                |
++-----------------------------+
+
+```
+**Architecture Overview**
+```
+
+                    ┌───────────────────────────────┐
+                    │          RealChat UI           │
+                    │  Mobile-first + Responsive     │
+                    │  Solid colors + Animations     │
+                    └───────────────┬───────────────┘
+                                    │
+                                    │ Realtime updates
+                                    v
+                    ┌───────────────────────────────┐
+                    │        Lovable Cloud           │
+                    │  Database + Realtime Sync      │
+                    └───────────────┬───────────────┘
+                                    │
+                                    v
+        ┌─────────────────────────────────────────────────┐
+        │                  Data Collections                │
+        │ rooms | participants | messages | reactions      │
+        └─────────────────────────────────────────────────┘
+```
+
+**Folder Structure**
+
+```
+RealChat/
+│
+├── README.md
+├── package.json
+├── .env.example
+├── .gitignore
+│
+├── public/
+│   ├── favicon.ico
+│   └── assets/
+│       └── logo.png
+│
+└── src/
+    ├── app/
+    │   ├── layout.jsx
+    │   ├── page.jsx                # Home (Create / Join)
+    │   ├── create-room/
+    │   │   └── page.jsx
+    │   ├── join-room/
+    │   │   └── page.jsx
+    │   └── room/
+    │       └── [roomId]/
+    │           └── page.jsx        # Chat Screen
+    │
+    ├── components/
+    │   ├── ui/
+    │   │   ├── Button.jsx
+    │   │   ├── Input.jsx
+    │   │   └── Modal.jsx
+    │   │
+    │   ├── chat/
+    │   │   ├── ChatHeader.jsx
+    │   │   ├── ChatMessages.jsx
+    │   │   ├── ChatBubble.jsx
+    │   │   ├── ChatInput.jsx
+    │   │   ├── ReactionPicker.jsx
+    │   │   └── ParticipantsDrawer.jsx
+    │   │
+    │   └── common/
+    │       ├── CopyToClipboard.jsx
+    │       ├── Loader.jsx
+    │       └── Toast.jsx
+    │
+    ├── lib/
+    │   ├── lovableClient.js        # Lovable Cloud client config
+    │   ├── roomService.js          # Create/Join room logic
+    │   ├── messageService.js       # Send/Receive messages
+    │   ├── reactionService.js      # Add/Remove reactions
+    │   └── utils.js
+    │
+    ├── styles/
+    │   └── globals.css
+    │
+    └── constants/
+        ├── colors.js
+        └── reactions.js
+```
+
+**⚙️ Setup Instructions**
+
+✅ Prerequisites
+
+Make sure you have:
+
+Node.js (LTS recommended)
+
+npm or yarn
+
+A Lovable Cloud project (for realtime database + sync)
+
+1️⃣ Clone the Repository
+```bash
+git clone https://github.com/your-username/realchat.git
+```
+```bash
+cd realchat
+```
+2️⃣ Install Dependencies
+```bash
+npm install
+```
+3️⃣ Setup Environment Variables
+
+Create a .env file from .env.example
+
+cp .env.example .env
+
+
+Example .env:
+```
+LOVABLE_CLOUD_API_KEY=your_key_here
+LOVABLE_CLOUD_PROJECT_ID=your_project_id_here
+LOVABLE_CLOUD_URL=https://your-lovable-cloud-endpoint
+
+4️⃣ Run the App
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Now open:
+```bash
+http://localhost:3000
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
 
-**Use GitHub Codespaces**
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
