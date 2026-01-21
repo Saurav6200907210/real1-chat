@@ -17,6 +17,7 @@ interface Message {
   text: string;
   created_at: string;
   reactions: Reaction[];
+  is_edited: boolean;
 }
 
 interface Reaction {
@@ -84,6 +85,7 @@ export function useRoom(roomId: string | null) {
         // Combine messages with their reactions
         const messagesWithReactions = (messagesData || []).map(msg => ({
           ...msg,
+          is_edited: msg.is_edited ?? false,
           reactions: reactionsData.filter(r => r.message_id === msg.id)
         }));
 
@@ -116,8 +118,38 @@ export function useRoom(roomId: string | null) {
           filter: `room_id=eq.${roomId}`
         },
         (payload) => {
-          const newMessage = { ...payload.new as Message, reactions: [] };
+          const newMessage = { ...payload.new as Message, reactions: [], is_edited: false };
           setMessages(prev => [...prev, newMessage]);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages',
+          filter: `room_id=eq.${roomId}`
+        },
+        (payload) => {
+          const updatedMessage = payload.new as Message;
+          setMessages(prev => prev.map(msg => 
+            msg.id === updatedMessage.id
+              ? { ...msg, text: updatedMessage.text, is_edited: updatedMessage.is_edited }
+              : msg
+          ));
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'messages',
+          filter: `room_id=eq.${roomId}`
+        },
+        (payload) => {
+          const deletedMessage = payload.old as { id: string };
+          setMessages(prev => prev.filter(msg => msg.id !== deletedMessage.id));
         }
       )
       .on(
@@ -194,7 +226,7 @@ export function useRoom(roomId: string | null) {
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
           await presenceChannel.track({
-            odline_at: new Date().toISOString(),
+            online_at: new Date().toISOString(),
             userId,
             userName,
             isTyping: false
@@ -238,6 +270,49 @@ export function useRoom(roomId: string | null) {
     }
   }, [roomId, userId, userName]);
 
+  // Edit message
+  const editMessage = useCallback(async (messageId: string, newText: string) => {
+    if (!roomId || !newText.trim()) return;
+
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .update({ text: newText.trim(), is_edited: true })
+        .eq('id', messageId)
+        .eq('sender_id', userId);
+
+      if (error) throw error;
+    } catch (err) {
+      console.error('Error editing message:', err);
+      throw err;
+    }
+  }, [roomId, userId]);
+
+  // Delete message
+  const deleteMessage = useCallback(async (messageId: string) => {
+    if (!roomId) return;
+
+    try {
+      // First delete associated reactions
+      await supabase
+        .from('reactions')
+        .delete()
+        .eq('message_id', messageId);
+
+      // Then delete the message
+      const { error } = await supabase
+        .from('messages')
+        .delete()
+        .eq('id', messageId)
+        .eq('sender_id', userId);
+
+      if (error) throw error;
+    } catch (err) {
+      console.error('Error deleting message:', err);
+      throw err;
+    }
+  }, [roomId, userId]);
+
   // Toggle reaction
   const toggleReaction = useCallback(async (messageId: string, reactionType: string) => {
     if (!roomId) return;
@@ -250,7 +325,7 @@ export function useRoom(roomId: string | null) {
         .eq('message_id', messageId)
         .eq('user_id', userId)
         .eq('reaction_type', reactionType)
-        .single();
+        .maybeSingle();
 
       if (existing) {
         // Remove reaction
@@ -306,6 +381,8 @@ export function useRoom(roomId: string | null) {
     loading,
     error,
     sendMessage,
+    editMessage,
+    deleteMessage,
     toggleReaction,
     setTypingIndicator,
     userId

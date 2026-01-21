@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Copy, Check, Share2, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { generateRoomCode, getInviteLink, getUserId, getUserName } from '@/lib/user';
+import { generateRoomCode, getInviteLink, getUserId, getUserName, setUserName } from '@/lib/user';
+import { UsernameModal } from '@/components/UsernameModal';
 import { toast } from 'sonner';
 
 export default function CreateRoom() {
@@ -11,13 +12,30 @@ export default function CreateRoom() {
   const [loading, setLoading] = useState(false);
   const [roomCode, setRoomCode] = useState<string | null>(null);
   const [copied, setCopied] = useState<'code' | 'link' | null>(null);
+  const [showUsernameModal, setShowUsernameModal] = useState(false);
+  const [currentUserName, setCurrentUserName] = useState(getUserName());
+
+  // Check if user has a custom name set
+  useEffect(() => {
+    const storedName = localStorage.getItem('realchat_user_name');
+    // Only show modal if user has auto-generated name (starts with "User ")
+    if (!storedName || storedName.startsWith('User ')) {
+      setShowUsernameModal(true);
+    }
+  }, []);
+
+  const handleUsernameSubmit = (username: string) => {
+    setUserName(username);
+    setCurrentUserName(username);
+    setShowUsernameModal(false);
+  };
 
   const handleCreate = async () => {
     setLoading(true);
     try {
       const code = generateRoomCode();
       const userId = getUserId();
-      const userName = getUserName();
+      const userName = currentUserName;
 
       // Create room
       const { data: room, error: roomError } = await supabase
@@ -91,6 +109,13 @@ export default function CreateRoom() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
+      {/* Username Modal */}
+      <UsernameModal
+        open={showUsernameModal}
+        onSubmit={handleUsernameSubmit}
+        currentName={currentUserName}
+      />
+
       {/* Header */}
       <header className="flex items-center gap-3 px-4 py-4 border-b border-border">
         <Button
@@ -112,8 +137,11 @@ export default function CreateRoom() {
               <MessageCircle className="w-8 h-8 text-primary" />
             </div>
             <h2 className="text-xl font-semibold mb-2">Start a New Room</h2>
-            <p className="text-muted-foreground text-center mb-8 max-w-xs">
+            <p className="text-muted-foreground text-center mb-4 max-w-xs">
               Create a chat room and invite others using the room code or link
+            </p>
+            <p className="text-sm text-primary mb-6">
+              Joining as: <span className="font-semibold">{currentUserName}</span>
             </p>
             <Button
               onClick={handleCreate}

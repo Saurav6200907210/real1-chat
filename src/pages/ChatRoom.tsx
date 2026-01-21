@@ -2,14 +2,17 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useRoom } from '@/hooks/useRoom';
-import { getUserId, getUserName } from '@/lib/user';
+import { useNotifications } from '@/hooks/useNotifications';
+import { getUserId, getUserName, setUserName } from '@/lib/user';
 import { ChatHeader } from '@/components/chat/ChatHeader';
 import { ChatBubble } from '@/components/chat/ChatBubble';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { NewMessageIndicator } from '@/components/chat/NewMessageIndicator';
+import { UsernameModal } from '@/components/UsernameModal';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Bell, BellOff } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 export default function ChatRoom() {
   const navigate = useNavigate();
@@ -19,13 +22,39 @@ export default function ChatRoom() {
   const [notFound, setNotFound] = useState(false);
   const [newMessagesCount, setNewMessagesCount] = useState(0);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  const [showUsernameModal, setShowUsernameModal] = useState(false);
+  const [currentUserName, setCurrentUserName] = useState(getUserName());
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const previousMessagesCount = useRef(0);
   
   const userId = getUserId();
-  const userName = getUserName();
+  const { permission, requestPermission, showNotification } = useNotifications();
+
+  // Check if user has a custom name set
+  useEffect(() => {
+    const storedName = localStorage.getItem('realchat_user_name');
+    // Only show modal if user has auto-generated name (starts with "User ")
+    if (!storedName || storedName.startsWith('User ')) {
+      setShowUsernameModal(true);
+    }
+  }, []);
+
+  const handleUsernameSubmit = async (username: string) => {
+    setUserName(username);
+    setCurrentUserName(username);
+    setShowUsernameModal(false);
+    
+    // Update participant name if already in room
+    if (roomId) {
+      await supabase
+        .from('participants')
+        .update({ user_name: username })
+        .eq('room_id', roomId)
+        .eq('user_id', userId);
+    }
+  };
 
   // Fetch room on mount
   useEffect(() => {
@@ -40,7 +69,7 @@ export default function ChatRoom() {
           .from('rooms')
           .select('*')
           .eq('room_code', code.toUpperCase())
-          .single();
+          .maybeSingle();
 
         if (error || !room) {
           setNotFound(true);
@@ -48,13 +77,15 @@ export default function ChatRoom() {
           return;
         }
 
+        const userName = getUserName();
+
         // Check if user is a participant
         const { data: participant } = await supabase
           .from('participants')
           .select('*')
           .eq('room_id', room.id)
           .eq('user_id', userId)
-          .single();
+          .maybeSingle();
 
         if (!participant) {
           // Auto-join the room
@@ -96,7 +127,7 @@ export default function ChatRoom() {
           .then(() => {});
       }
     };
-  }, [code, navigate, userId, userName, roomId]);
+  }, [code, navigate, userId, roomId]);
 
   const {
     participants,
@@ -106,9 +137,25 @@ export default function ChatRoom() {
     loading,
     error,
     sendMessage,
+    editMessage,
+    deleteMessage,
     toggleReaction,
     setTypingIndicator
   } = useRoom(roomId);
+
+  // Show notification for new messages from others
+  useEffect(() => {
+    if (messages.length > previousMessagesCount.current) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage && lastMessage.sender_id !== userId) {
+        showNotification(`${lastMessage.sender_name}`, {
+          body: lastMessage.text,
+          roomCode: code?.toUpperCase(),
+          url: `/chat/${code?.toUpperCase()}`
+        });
+      }
+    }
+  }, [messages, userId, code, showNotification]);
 
   // Handle scroll detection
   const handleScroll = useCallback(() => {
@@ -168,6 +215,33 @@ export default function ChatRoom() {
     }
   };
 
+  const handleEdit = async (messageId: string, newText: string) => {
+    try {
+      await editMessage(messageId, newText);
+      toast.success('Message edited');
+    } catch (err) {
+      toast.error('Failed to edit message');
+    }
+  };
+
+  const handleDelete = async (messageId: string) => {
+    try {
+      await deleteMessage(messageId);
+      toast.success('Message deleted');
+    } catch (err) {
+      toast.error('Failed to delete message');
+    }
+  };
+
+  const handleEnableNotifications = async () => {
+    const granted = await requestPermission();
+    if (granted) {
+      toast.success('Notifications enabled!');
+    } else {
+      toast.error('Notifications permission denied');
+    }
+  };
+
   // Loading state
   if (initialLoading) {
     return (
@@ -195,6 +269,13 @@ export default function ChatRoom() {
 
   return (
     <div className="h-screen flex flex-col bg-background">
+      {/* Username Modal */}
+      <UsernameModal
+        open={showUsernameModal}
+        onSubmit={handleUsernameSubmit}
+        currentName={currentUserName}
+      />
+
       {/* Header */}
       <ChatHeader
         roomCode={code?.toUpperCase() || ''}
@@ -202,6 +283,22 @@ export default function ChatRoom() {
         participants={participants}
         onLeave={handleLeave}
       />
+
+      {/* Notification prompt */}
+      {permission === 'default' && (
+        <div className="px-4 py-2 bg-muted/50 border-b border-border flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">Enable notifications for new messages</span>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={handleEnableNotifications}
+            className="h-8 gap-2"
+          >
+            <Bell className="w-4 h-4" />
+            Enable
+          </Button>
+        </div>
+      )}
 
       {/* Messages area */}
       <div
@@ -225,6 +322,8 @@ export default function ChatRoom() {
               message={message}
               isOwn={message.sender_id === userId}
               onReact={toggleReaction}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
               userId={userId}
               isNew={index >= previousMessagesCount.current - 1}
             />
