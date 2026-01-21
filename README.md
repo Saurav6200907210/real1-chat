@@ -219,7 +219,8 @@ npm run dev
 ```
 
 Now open:
+```bash
 http://localhost:3000
-
+```
 
 
